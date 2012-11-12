@@ -2,6 +2,16 @@ var DOODLE_ELEM = '.doodle';
 
 var doodleElements = {};
 
+var doodleSession = {
+
+}
+
+/* KEYMAP CODES*/
+TOGGLE_MODE_KEY     =  192;
+MOVE_CANVAS_KEY     =   32;
+
+DELETE_KEY          =   46;
+
 function DDElem(leftPos, topPos, width, height) {
 
     DD_deactivateAll();
@@ -32,8 +42,12 @@ function DDElem(leftPos, topPos, width, height) {
         .css(this.css)
         .appendTo(DOODLE_ELEM);
 
+    // initialize any per-ddelem events
+    initDDElemEvents(this.ddelId);
+
     // assign it as an instance variable.
     this.domrep = $('.dd_elem[data-ddel-id="' + this.ddelId + '"]');
+
 
 }
 
@@ -44,7 +58,20 @@ DDElem.prototype.setState = function (newState) {
     this.state = newState;
 }
 
-DDElem.prototype.redraw = function () { $(this.domrep).css(this.css) }
+DDElem.prototype.redraw = function () {
+    $(this.domrep).css(this.css)
+}
+
+DDElem.prototype.delete = function () {
+    $(this.domrep).remove();
+    delete doodleElements[this.ddelId];
+}
+
+function DD_activateDDEl(ddelid){
+    doodleElements[ddelid].setState('active');
+    $(doodleElements[ddelid].domrep).addClass('active');
+}
+
 
 function DD_deactivateAll(){
 
@@ -65,6 +92,41 @@ function DD_getCurrent(){
 
 }
 
+function DD_setDDElAtCursor(ddelem){
+    /* All .dd_elem elements have a hover event which triggers when the cursor is above them, enabling
+     * us to track which one is under the cursor and on the top of the 'stack'
+     * */
+
+     // extract the id
+    var ddelemid = $(ddelem).attr('data-ddel-id');
+
+    // set a data attribute in the doodle for this
+    $(DOODLE_ELEM).attr('data-ddel-at-cursor', ddelemid);
+
+    // and in the doodleSession object, point to the ddel object
+    doodleSession.ddelAtCursor = doodleElements[ddelemid];
+
+}
+
+function initDDElemEvents(ddelemid) {
+
+    $('.dd_elem[data-ddel-id="' + ddelemid + '"]').hover(
+
+        function(){
+            DD_setDDElAtCursor($(this))
+        },
+
+        function(){
+            if ( $(DOODLE_ELEM).attr('data-ddel-at-cursor') == ddelemid ) {
+                $(DOODLE_ELEM).attr('data-ddel-at-cursor', '');
+                doodleSession.ddelAtCursor = null;
+            }
+        }
+
+    );
+
+}
+
 
 $(document).ready(function () {
 
@@ -72,14 +134,20 @@ $(document).ready(function () {
 
         mousedown: function(event){
 
-            // calculate the click position relative to the .doodle element
-            var left = event.pageX - $(this).offset().left;
-            var top  = event.pageY - $(this).offset().top;
+            if ($(DOODLE_ELEM).hasClass('dd_mode-draw')) {
+                // calculate the click position relative to the .doodle element
+                var left = event.pageX - $(this).offset().left;
+                var top = event.pageY - $(this).offset().top;
 
-            // create a new DDElem instance at those coordinates;
-            var ddel = new DDElem(left, top, 0, 0);
+                // create a new DDElem instance at those coordinates;
+                var ddel = new DDElem(left, top, 0, 0);
 
-            doodleElements[ddel.ddelId] = ddel;
+                doodleElements[ddel.ddelId] = ddel;
+            } else {
+
+
+
+            }
 
         },
 
@@ -88,7 +156,7 @@ $(document).ready(function () {
             var curDDEl = DD_getCurrent();
 
             // if an element in a drawing state was found
-            if (curDDEl.state == 'drawing') {
+            if (curDDEl && curDDEl.state == 'drawing') {
 
                 // calculate the new width and height for the element based on the cursor's position relative
                 // to the left and top css values
@@ -103,18 +171,65 @@ $(document).ready(function () {
 
         mouseup: function(event){
 
-            var curDDEl = DD_getCurrent();
+            if ($(DOODLE_ELEM).hasClass('.dd_mode-draw')) {
+                var curDDEl = DD_getCurrent();
 
-            // if an element in a drawing state was found
-            if (curDDEl.state == 'drawing') {
-                curDDEl.setState('active');
-                // redraw
-                curDDEl.redraw();
+                // if an element in a drawing state was found
+                if (curDDEl.state == 'drawing') {
+                    curDDEl.setState('active');
+                    // redraw
+                    curDDEl.redraw();
+
+                    // if the element has no width and/or no height, remove it
+                    if (curDDEl.css.width == 0 || curDDEl.css.width == 0) { curDDEl.delete(); }
+
+                }
+
             } else {
-                DD_deactivateAll();
+
+                // Activate the element under the cursor, or deactivate all if there's no
+                // elements under the cursor.
+                if ($(DOODLE_ELEM).attr('data-ddel-at-cursor') == '') {
+                    DD_deactivateAll();
+                } else {
+                    DD_activateDDEl($(DOODLE_ELEM).attr('data-ddel-at-cursor'));
+                }
+
             }
 
         }
+
+    });
+
+    $(document).on({
+
+        keyup: function(event) {
+            var code = event.keyCode || event.which;
+
+            if (code == TOGGLE_MODE_KEY) {
+                event.preventDefault();
+                $('.dd_editing').toggleClass('dd_mode-draw dd_mode-edit');
+            }
+
+            if (code == DELETE_KEY) {
+
+                $('.dd_elem.active').each(function(){
+                    doodleElements[$(this).data('ddel-id')].delete();
+                });
+
+            }
+
+        },
+
+        keydown: function(event){
+            var code = event.keyCode || event.which;
+            if (code == MOVE_CANVAS_KEY) {
+                event.preventDefault();
+
+            }
+        }
+
+
 
     })
 

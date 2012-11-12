@@ -4,11 +4,22 @@
   /* this will work for QtWebKit in future */
   -webkit-user-drag: none; }
 
+/* position and size properties for the doodle should be defined here, so
+   that things like the grid and other UI elements can share them without
+   having to be children of the .doodle element
+ */
 .doodle {
-  position: relative;
+  position: relative; }
+
+.dd_editing {
   width: 800px;
-  height: 600px;
-  border: 1px solid blue; }
+  height: 600px; }
+
+.dd_mode-edit {
+  border: 5px solid blue; }
+
+.dd_mode-draw {
+  border: 5px solid orange; }
 
 .dd_elem {
   position: absolute;
