@@ -3,8 +3,15 @@ var DOODLE_ELEM = '.doodle';
 var doodleElements = {};
 
 function DDElem(leftPos, topPos, width, height) {
+
+    DD_deactivateAll();
+
+    // generate a reasonably unique id
+    // TODO: replace this with something more robust
     var ts = new Date().getTime();
     this.ddelId = 'ddelid-' + ts;
+
+    // populate the css object with the arguments (which are all required)
     this.css = {
         left:leftPos,
         top:topPos,
@@ -12,18 +19,21 @@ function DDElem(leftPos, topPos, width, height) {
         height:height
     }
 
+    // the initial state should always be drawing for now
+    // TODO: this will need to be smarter when copy/paste and/or duplicate features are added
     this.state = 'drawing';
 
+    // Create a DOM node for the element
     $("<div/>", {
-        class:'dd_elem'
-
+        class:'dd_elem active'
     })
         .attr('data-ddel-id', this.ddelId)
         .attr('data-ddel-state', this.state)
         .css(this.css)
         .appendTo(DOODLE_ELEM);
 
-    this.domrep = $('.dd_elem[data-ddel-id="' + this.ddelId + '"]')
+    // assign it as an instance variable.
+    this.domrep = $('.dd_elem[data-ddel-id="' + this.ddelId + '"]');
 
 }
 
@@ -36,7 +46,15 @@ DDElem.prototype.setState = function (newState) {
 
 DDElem.prototype.redraw = function () { $(this.domrep).css(this.css) }
 
-function getCurDDEl(){
+function DD_deactivateAll(){
+
+    // If another shape was set to active, it should not be, anymore.
+    var activeDDElems = $('.dd_elem.active, .dd_elem[data-ddel-id="active"]');
+    $(activeDDElems).removeClass('active');
+
+}
+
+function DD_getCurrent(){
 
     var curDDEl = {
         domrep: $('.dd_elem[data-ddel-state="drawing"]').first(),
@@ -46,6 +64,7 @@ function getCurDDEl(){
     return ( $(curDDEl.domrep).length > 0 ) ? curDDEl.obj : false;
 
 }
+
 
 $(document).ready(function () {
 
@@ -66,7 +85,7 @@ $(document).ready(function () {
 
         mousemove: function(event){
 
-            var curDDEl = getCurDDEl();
+            var curDDEl = DD_getCurrent();
 
             // if an element in a drawing state was found
             if (curDDEl.state == 'drawing') {
@@ -84,13 +103,15 @@ $(document).ready(function () {
 
         mouseup: function(event){
 
-            var curDDEl = getCurDDEl();
+            var curDDEl = DD_getCurrent();
 
             // if an element in a drawing state was found
-            if (curDDEl) {
+            if (curDDEl.state == 'drawing') {
                 curDDEl.setState('active');
                 // redraw
                 curDDEl.redraw();
+            } else {
+                DD_deactivateAll();
             }
 
         }
